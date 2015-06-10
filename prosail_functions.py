@@ -519,3 +519,82 @@ def the_cost_function ( x, refl, trans ):
     cost_refl = ( refl - retval[ :, 0])**2
     cost_trans = ( trans - retval[ :, 1])**2
     return np.sum ( cost_refl  + cost_trans )
+
+def call_prosail ( n, cab, car, cbrown, cw, cm, lai, lidf, rsoil, 
+             psoil, hspot, sza, vza, vaa ):
+    """Helper function"""
+    r = prosail.run_prosail ( n, cab, car, cbrown, cw, cm, 
+                             lai, lidf, 0, rsoil, psoil, hspot, sza, vza, vaa, 2 )
+    rpass = np.isfinite ( r )
+    x = np.arange(400, 2501 )
+    ri = np.interp ( x, x[rpass], r[rpass])
+    return ri
+
+def prosail_sensitivity_ssa ( x0=np.array([1.5, 40., 5., 0., 0.0113, 0.0053, 1.5, 
+                                           45., 1, 1, 0.01]), 
+                             sza=0., vza=30., raa=0.,
+                             epsilon=1e-5, do_plots=True ):
+    """Local approximation (around ``x0``) of the sensitivity of the PROSAIL
+    model to each input parameter. YOu can set up the point around which the
+    sensitivity is calculated (``x0``), the value of the finite difference 
+    (``epsilon``).
+    
+    Parameters
+    -------------
+    x0: array
+        A size 11 array, with the centre point around which the partial derivatives
+        will be calculated. The different elements are in PROSAIL order, e.g.
+        N, Cab, Car, Cbrown, Cw, Cm, LAI, average leaf angle (degrees), rsoil,
+        psoil, hotspot.
+    vza: float
+        The view zenith angle in degrees
+    sza: float
+        The solar zenith angle in degrees
+    raa: float
+        The relative azimuth angle (e.g. vaa - saa) in degrees.
+    epsilon: float
+        The finite difference amount. If you get NaN, make it a bit larger.
+    do_plots: bool
+        Whether to do some pretty plots
+        
+    Returns
+    ----------
+    
+    """
+    sensitivity = np.zeros((11,2101))
+    span = np.array([1.5, 80., 20., 1., 0.0439-0.0043, 0.0152-0.0017, 8., 90., 2., 2, 0.2 ])
+    for i in xrange(11):
+        r0 = call_prosail ( *(x0.tolist() + [sza, vza,raa]) )
+        xp = x0*1.
+        xp[i] = x0[i] + epsilon*span[i]
+        r1 = call_prosail ( *(xp.tolist() + [sza, vza,raa]) )
+        sensitivity[i,:] = (r0-r1)/epsilon
+    
+    if do_plots:
+        wv = np.arange( 400, 2501 )
+        fig, axs = plt.subplots ( figsize=(10,10), nrows=4, ncols=3, 
+                                     sharex=True, sharey=True )
+        axs = axs.flatten()
+        for i,input_parameter in enumerate( ['n', 'cab', 'car', 'cbrown', 'cw', 'cm', 
+                                            'LAI', 'LIDF', 'RSOIL','PSOIL', 'HOTSPOT'] ):
+            axs[i].plot ( wv, sensitivity[i,:], '-', lw=2)
+            axs[i].set_title( input_parameter )
+            axs[i].set_xlim ( 400, 2500 )
+            axs[i].axhline ( 0, color="0.8")
+            #if i in [ 0, 3]:
+            #    axs[i].set_ylabel(r'$\partial f/\partial \mathbf{x}$')
+            #if i > 2:
+            #    axs[i].set_xlabel ("Wavelength [nm]")
+            pretty_axes ( axs[i] )
+            axs[i].set_ylim(-0.5, 0.5)
+        plt.figure(figsize=(10,10))
+        for i,input_parameter in enumerate( ['n', 'cab', 'car', 'cbrown', 'cw', 'cm',
+                                            'LAI', 'LIDF', 'RSOIL','PSOIL', 'HOTSPOT'] ):
+            plt.plot( wv, sensitivity[i,:], lw=2, label=input_parameter )
+            pretty_axes()
+        plt.xlim ( 400, 2500)
+        plt.ylabel(r'$\partial f/\partial \mathbf{x}$')
+        plt.xlabel ("Wavelength [nm]")
+        plt.legend(loc='best')
+    return wv, sensitivity
+
