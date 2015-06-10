@@ -598,3 +598,119 @@ def prosail_sensitivity_ssa ( x0=np.array([1.5, 40., 5., 0., 0.0113, 0.0053, 1.5
         plt.legend(loc='best')
     return wv, sensitivity
 
+def mtci_experiment ( x0=np.array([1.5, 40., 5., 0., 0.0113, 0.0053, 1, 
+                                           30., 1, 1, 0.01]), 
+                    minvals = {'n':1.0, 'cab':15., 'car':10., 'cbrown': 0., 'cw':0.001, 'cm':0.0, 
+                               'lai':.5, 'lidf':0., 'rsoil':0., 'psoil':0., 'hspot':0.0001 },
+                    maxvals = { 'n': 2.5, 'cab': 80., 'car':20., 'cbrown': 1., 'cw':0.04, 'cm': 0.5,
+                               'lai':8.05, 'lidf':90., 'rsoil':2., 'psoil':2., 'hspot':0.5 },
+                     nuisance=None, sza=0., vza=30., raa=0., do_plots=True, n_tries=100, noise_level=0 ):
+    
+    """An experiment in exploring the relationship between MTCI and chlorophyll concentration using PROSAIL
+    This function allows one to forward model MTCI using the MERIS centre wavelength as a function of 
+    chlorophyll, while keeping the rest of the parameters set to ``x0``. If the ``nuisance`` option is set,
+    then the reflectances will be calculated by randomly varying the nuisance parameter between the bounds
+    given in ``minvals`` and ``maxvals``. You can specify the acquisition and illumination geometry, the
+    additive noise level and the number of tries with their respective options. The function also fits
+    a fist order polynomial to the data, and optionally does plots.
+    
+    Parameters
+    --------------
+    x0: array
+        A size 11 array, with the centre point around which the partial derivatives
+        will be calculated. The different elements are in PROSAIL order, e.g.
+        N, Cab, Car, Cbrown, Cw, Cm, LAI, average leaf angle (degrees), rsoil,
+        psoil, hotspot.
+    minvals: dict
+        Dictionary with minimum values for each parameter
+    maxvals: dict
+        Dictionary with maximum values for each parameter
+    nuisance: str or iter
+        A single parameter name (or a list of names) that indicate which parameter(s)
+        will be varied between the boundaries set in ``minvals`` and ``maxvals``
+    vza: float
+        The view zenith angle in degrees
+    sza: float
+        The solar zenith angle in degrees
+    raa: float
+        The relative azimuth angle (e.g. vaa - saa) in degrees.
+    epsilon: float
+        The finite difference amount. If you get NaN, make it a bit larger.
+    do_plots: bool
+        Whether to do some pretty plots
+    n_tries: int
+        The number of realisations of the simulation
+    noise_level: float
+        Standard deviation of the additive noise (in units of reflectance).
+        
+    Returns
+    ---------
+    The values of chlorophyll concentration, MTCI, and the two parametes of the fitted 
+    polynomial.
+    """
+    param_position = ['n','cab', 'car', 'cbrown', 'cw', 'cm', 'lai', 'lidf', 'rsoil', 'psoil' ]
+    if isinstance(nuisance, str) and ( nuisance in param_position):
+        nuisance = list ( nuisance )
+    elif isinstance(nuisance, (list, tuple)):
+        for x in nuisance:
+            if not x in param_position:
+                raise ValueError, "%s is not a PROSAIL parameter!" % x
+        
+    
+    wv = np.arange( 400, 2501 )
+    band8_pass = (wv == 681)
+    band9_pass = (wv == 709)
+    band10_pass = (wv == 754)
+    MTCI = []
+    xp = x0*1.
+    cab_axis = []
+    for n_tries in xrange(n_tries):
+        for cab in np.arange(20, 100, 5):
+            cab = cab + 5.*(np.random.rand() - 0.5 )
+            if nuisance is None: # No flipping parameters around
+                xp[1] = cab
+                r = call_prosail ( *(xp.tolist() + [sza, vza,raa]) )
+                r8 = r[band8_pass].sum() + np.random.randn()*noise_level
+                r9 = r[band9_pass].sum()+ np.random.randn()*noise_level
+                r10 = r[band10_pass].sum()+ np.random.randn()*noise_level
+                mtci = ( r10-r9)/(r9-r8)
+                MTCI.append ( mtci )
+                cab_axis.append ( cab )
+            else:
+                for nuisance_parameter in nuisance:
+                    delta = maxvals[nuisance_parameter] - minvals[nuisance_parameter]
+                    ip = param_position.index ( nuisance_parameter )
+                    
+                    s = minvals[nuisance_parameter] +  np.random.rand()  * delta
+                    xp[ip] =  s
+                
+                xp[1] = cab
+                r = call_prosail ( *(xp.tolist() + [sza, vza,raa]) )
+                r8 = r[band8_pass].sum() + np.random.randn()*noise_level
+                r9 = r[band9_pass].sum()+ np.random.randn()*noise_level
+                r10 = r[band10_pass].sum()+ np.random.randn()*noise_level
+                mtci = ( r10-r9)/(r9-r8)
+                MTCI.append ( mtci )
+                cab_axis.append ( cab )
+    MTCI = np.array ( MTCI )
+    mtci_passer = np.logical_and (MTCI > 0.01, MTCI < 50 )    
+    MTCI = MTCI[mtci_passer]
+    cab_axis = np.array ( cab_axis )
+    cab_axis = cab_axis[mtci_passer]
+    p = np.polyfit ( MTCI, cab_axis, 1 )
+    rr = np.corrcoef ( cab_axis, np.polyval(p, MTCI))[0,1]
+
+    if do_plots:
+        plt.plot( MTCI, cab_axis, 'o', markeredgecolor="none")        
+        plt.ylabel("Leaf chlorophyll concentration")
+        plt.xlabel("MTCI")
+        if nuisance is None:
+            plt.title("Fit: %g*MTCI +%g; R2=%g"% ( p[0],p[1], rr*rr), 
+                     fontsize=10)
+        else:
+            plt.title("Fit: %g*MTCI +%g; R2=%g"% ( p[0],p[1], rr*rr) +
+                 "\nNuisance: %s" % ( " ".join(nuisance)), fontsize=10)
+        
+        plt.plot( [0,10], np.polyval(p, [0,10]), '--')
+        pretty_axes()
+    return cab_axis, np.array( MTCI ), p[0], p[1]
