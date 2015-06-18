@@ -598,12 +598,13 @@ def prosail_sensitivity_ssa ( x0=np.array([1.5, 40., 5., 0., 0.0113, 0.0053, 1.5
         plt.legend(loc='best')
     return wv, sensitivity
 
-def mtci_experiment ( x0=np.array([1.5, 40., 5., 0., 0.0113, 0.0053, 1, 
+def mtci_experiment ( x0=np.array([1.5, 40., 5., 0., 0.0113, 0.0053, 6, 
                                            30., 1, 1, 0.01]), 
                     minvals = {'n':1.0, 'cab':15., 'car':10., 'cbrown': 0., 'cw':0.001, 'cm':0.0, 
                                'lai':.5, 'lidf':0., 'rsoil':0., 'psoil':0., 'hspot':0.0001 },
                     maxvals = { 'n': 2.5, 'cab': 80., 'car':20., 'cbrown': 1., 'cw':0.04, 'cm': 0.5,
                                'lai':8.05, 'lidf':90., 'rsoil':2., 'psoil':2., 'hspot':0.5 },
+                     bwidth=10,
                      nuisance=None, sza=0., vza=30., raa=0., do_plots=True, n_tries=100, noise_level=0 ):
     
     """An experiment in exploring the relationship between MTCI and chlorophyll concentration using PROSAIL
@@ -658,9 +659,9 @@ def mtci_experiment ( x0=np.array([1.5, 40., 5., 0., 0.0113, 0.0053, 1,
         
     
     wv = np.arange( 400, 2501 )
-    band8_pass = (wv == 681)
-    band9_pass = (wv == 709)
-    band10_pass = (wv == 754)
+    band8_pass = np.logical_and ( wv >= ( 681-bwidth), wv <= (681+bwidth))
+    band9_pass = np.logical_and ( wv >= ( 709-bwidth), wv <= (709+bwidth))
+    band10_pass = np.logical_and ( wv >= ( 865-bwidth), wv <= (865+bwidth))
     MTCI = []
     xp = x0*1.
     cab_axis = []
@@ -670,9 +671,9 @@ def mtci_experiment ( x0=np.array([1.5, 40., 5., 0., 0.0113, 0.0053, 1,
             if nuisance is None: # No flipping parameters around
                 xp[1] = cab
                 r = call_prosail ( *(xp.tolist() + [sza, vza,raa]) )
-                r8 = r[band8_pass].sum() + np.random.randn()*noise_level
-                r9 = r[band9_pass].sum()+ np.random.randn()*noise_level
-                r10 = r[band10_pass].sum()+ np.random.randn()*noise_level
+                r8 = r[band8_pass].mean() + np.random.randn()*noise_level
+                r9 = r[band9_pass].mean()+ np.random.randn()*noise_level
+                r10 = r[band10_pass].mean()+ np.random.randn()*noise_level
                 mtci = ( r10-r9)/(r9-r8)
                 MTCI.append ( mtci )
                 cab_axis.append ( cab )
@@ -701,7 +702,7 @@ def mtci_experiment ( x0=np.array([1.5, 40., 5., 0., 0.0113, 0.0053, 1,
     rr = np.corrcoef ( cab_axis, np.polyval(p, MTCI))[0,1]
 
     if do_plots:
-        plt.plot( MTCI, cab_axis, 'o', markeredgecolor="none")        
+        plt.plot( MTCI, cab_axis, 'o', markerfacecolor="none")        
         plt.ylabel("Leaf chlorophyll concentration")
         plt.xlabel("MTCI")
         if nuisance is None:
@@ -714,3 +715,138 @@ def mtci_experiment ( x0=np.array([1.5, 40., 5., 0., 0.0113, 0.0053, 1,
         plt.plot( [0,10], np.polyval(p, [0,10]), '--')
         pretty_axes()
     return cab_axis, np.array( MTCI ), p[0], p[1]
+def plot_vi_space ( v,r, n, the_vi ):
+    """Plots vegetation index RED/NIR space for a particular VI of those considered (NDVI, SAVI and OSAVI),
+    and plot a colour shaded scatter plot of a set of points over RED/NIR space, the colour given by the
+    value of `v`.
+    
+    Parameters
+    ---------------
+    v: array
+        The value associated to each `r` and ``n`` (e.g. LAI)
+    r: array
+        Reflectance in the red band
+    n: array
+        Reflectance in the nir band
+    the_vi: str
+        The vegetation index to calculate. MUST be one of NDVI, SAVI or OSAVI, else raises Exception
+    
+    Returns
+    --------
+    Nothing, just does some plots!
+    
+    """
+    L = 0.5
+    red = np.arange (0.01, 0.8, 0.05)
+    nir = np.arange (0.01, 0.8, 0.05)
+    R,N = np.meshgrid ( red, nir )
+    if the_vi == "NDVI":
+        vi = ( N -R )/ ( N+R )
+        vix = ( n-r )/(n+r)
+    elif the_vi == "SAVI":
+        vi = ( 1+L )*(N - R)/(N+R+L)
+        vix  = ( 1+L)*(n-r)/(n+r+L)
+    elif the_vi == "OSAVI":
+        vi = 1.16*(N/R)/(R+N+0.16)
+        vix = 1.16*(n/r)/(r+n+0.16)
+    else:
+        raise ValueError, "We only deal with NDVI, SAVI or OSAVI"
+
+    plt.figure(figsize=(10,10))
+    plt.subplot(1,2,1)
+    CS = plt.contour(R, N, vi, 6, colors="k")
+    plt.clabel(CS, fontsize=9, inline=1 )
+    plt.scatter ( r, n, c=v, cmap=plt.cm.Greens)
+    pretty_axes()
+    plt.subplot(1,2,2)
+    plt.plot(v, vix, 'o')
+    print the_vi
+    plt.xlabel ( "value")
+    plt.ylabel( the_vi )
+    pretty_axes()
+
+def canopy_vi_expt ( x0=np.array([1.5, 40., 5., 0., 0.0113, 0.0053, 1,  30., 4, 0, 0.01]),
+               nuisance=["lai"], obs_noise=[1e-4, 1e-4],bwidth_r=10, bwidth_n=10,
+               minvals = {'n':1.0, 'cab':15., 'car':5., 'cbrown': 0., 'cw':0.001, 'cm':0.0, 
+                               'lai':.5, 'lidf':0., 'rsoil':0., 'psoil':0., 'hspot':0.0001 },
+               maxvals = { 'n': 2.5, 'cab': 80., 'car':20., 'cbrown': .1, 'cw':0.04, 'cm': 0.5,
+                               'lai':8.05, 'lidf':90., 'rsoil':5., 'psoil':2., 'hspot':0.5 },
+               sza=0., vza=30., raa=10., n_tries=500, do_plots=True, vin="NDVI"):
+    """Experiments with VIs in the red/nir region. This function performs some experiments using
+    simulations of the red and nir reflectance (around 650 and 865nm, respectively). The two bands
+    have a bandwidth controlled by ``bwidth_r`` and ``bwidth_n``. The geometry can be set up by
+    the usual options of ``sza``, ``vza`` and ``raa``. Additive random independent Gaussian
+    noise is added by the two-element ``obs_noise`` (red and nir bands noise, resp.). Additionally,
+    we have ``nuisance`` parameters that will be randomly set between the span given by ``minvals``
+    and ``maxvals``.
+    
+    Parameters
+    -------------
+    x0: array
+        An 11-element array with the different parameters in their usual PROSAIL positions. If a 
+        parameter is not in the ``nuisance`` list, its value will be set from here.
+    nuisance: list
+        A list of parameters to be randomly varied in the simulations between their corresponding
+        entries in ``minvals`` and ``maxvals``.
+    obs_noise: 2-element array
+        A 2 element array with the variance of the additive noise for the red and nir bands resp.
+    bwidth_r: scalar
+        The bandwith (centered at 650nm) of the red band
+    bwidth_n: scalar
+        The bandwith (centered at 865nm) of the nir band
+    minvals: dict
+        Dictionary with minimum values for each parameter
+    maxvals: dict
+        Dictionary with maximum values for each parameter
+    vza: float
+        The view zenith angle in degrees
+    sza: float
+        The solar zenith angle in degrees
+    raa: float
+        The relative azimuth angle (e.g. vaa - saa) in degrees.
+    n_tries: int
+        The number of realisations of the simulation
+    do_plots: bool
+        Whether to do plots or not
+    vi: str
+        VI to calculate for plots: NDVI, SAVI or OSAVI
+    Returns
+    ----------
+    A tuple containing the input parameters, and the red and nir reflectances
+    """
+    if not ( type(nuisance) == type([])):
+        nuisance = list ( nuisance )
+    wv = np.arange( 400, 2501 )
+    red_pass = np.logical_and ( wv >= ( 650-bwidth_r), wv <= (650+bwidth_r))#(wv == 650 )
+    nir_pass = np.logical_and ( wv >= ( 865-bwidth_r), wv <= (865+bwidth_r))
+    param_names = ['n', 'cab', 'car', 'cbrown', 'cw', 'cm', 'lai', 'lidf', 'rsoil', 'psoil', 'hspot']
+    xbase = np.zeros ( 11 )
+    span  = np.zeros ( 11 )
+    for i, param in enumerate ( param_names ):
+        xbase[i] = minvals[param]
+        if param in nuisance:
+            span[i] = (maxvals[param] - minvals[param])
+    x = []
+    red = []
+    nir = []
+    for n_tries in xrange(n_tries):
+        xp = x0*1.
+        for i,p in enumerate( param_names ):
+            if p in nuisance:
+                xp[i]=xbase[i] + np.random.rand()*span[i]
+        r = call_prosail ( *(xp.tolist() + [sza, vza,raa]) )
+        red.append ( r[red_pass].mean() )
+        nir.append(r[nir_pass].mean() )
+        x.append ( xp )
+    x = np.array ( x )
+    red = np.array ( red )
+    nir = np.array ( nir )
+    red += np.random.randn(red.shape[0])*obs_noise[0]
+    nir += np.random.randn(red.shape[0])*obs_noise[1]
+    red = np.clip ( red, 0.01, 1 )
+    nir = np.clip ( nir, 0.01, 1 )
+    if do_plots:
+        p = param_names.index ( nuisance[0] )
+        print vin
+        plot_vi_space ( x[:,p],red, nir, vin )
+    return x, red, nir
