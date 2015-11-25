@@ -19,17 +19,18 @@ VirtualBox image with all the required packages installed.
 
 You can find the following presentations:
 
-* A motivation for RT modelling [(slides)[http://jgomezdans.github.io/barrax_2015/RTMotivation.slides.html]][(IPython notebook)[http://github.io/jgomezdans/barrax_2015/RTMotivation.ipynb]]
-* A brief introduction to leaf RT models [(slides)[http://jgomezdans.github.io/barrax_2015/LeavesRTpres.slides.html]][(IPython notebook)[http://github.io/jgomezdans/barrax_2015/LeavesRTpres.ipynb]]
-* An introduction to canopy RT models [(slides)[http://jgomezdans.github.io/barrax_2015/CanopyRTpres.slides.html]][(IPython notebook)[http://github.io/jgomezdans/barrax_2015/CanopyRTpres.ipynb]]
-* An introduction to RT model inversion [(slides)[http://jgomezdans.github.io/barrax_2015/InversionPres.slides.html]][(IPython notebook)[http://github.io/jgomezdans/barrax_2015/InversionPres.ipynb]]
+* A motivation for RT modelling [[slides](http://jgomezdans.github.io/barrax_2015/RTMotivation.slides.html)][[IPython notebook](http://github.io/jgomezdans/barrax_2015/RTMotivation.ipynb)]
+* A brief introduction to leaf RT models [[slides](http://jgomezdans.github.io/barrax_2015/LeavesRTpres.slides.html)][[IPython notebook](http://github.io/jgomezdans/barrax_2015/LeavesRTpres.ipynb)]
+* An introduction to canopy RT models [[slides](http://jgomezdans.github.io/barrax_2015/CanopyRTpres.slides.html)][[IPython notebook](http://github.io/jgomezdans/barrax_2015/CanopyRTpres.ipynb)]
+* An introduction to RT model inversion [[slides](http://jgomezdans.github.io/barrax_2015/InversionPres.slides.html)][[IPython notebook](http://github.io/jgomezdans/barrax_2015/InversionPres.ipynb)]
 
 ##### Tutorials
 
 You can also find a number of tutorials. These are 
 
-* A lab session on the PROSPECT leaf RT model [(IPython notebook)[http://github.io/jgomezdans/barrax_2015/leaf_optics.ipynb]] [(HTML)[http://jgomezdans.github.io/barrax_2015/leaf_optics.html]]
-* A lab session on the SAIL (and PROSPECT) RT model [(IPython notebook)[http://github.io/jgomezdans/barrax_2015/PROSAIL_experiments.ipynb]] [(HTML)[http://jgomezdans.github.io/barrax_2015/PROSAIL_experiments.html]]
+* A lab session on the PROSPECT leaf RT model [[IPython notebook]
+(http://github.io/jgomezdans/barrax_2015/leaf_optics.ipynb)] [[HTML](http://jgomezdans.github.io/barrax_2015/leaf_optics.html)]
+* A lab session on the SAIL (and PROSPECT) RT model [[IPython notebook](http://github.io/jgomezdans/barrax_2015/PROSAIL_experiments.ipynb)] [[HTML](http://jgomezdans.github.io/barrax_2015/PROSAIL_experiments.html)]
 
 ##### Installing the VirtualBox Image
 
