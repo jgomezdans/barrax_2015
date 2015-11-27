@@ -34,4 +34,14 @@ You can also find a number of tutorials. These are
 
 ##### Installing the VirtualBox Image
 
-**TODO**
+The practicals are written in Python using the IPython notebook. 
+While in principle this is a portable solution, compiling the PROSAIL model 
+Python bindings has proven challenging on some systems, so we provide a 
+Virtual Box Linux image that you can install on your computer and use to
+run the contents of the course. 
+
+The [Virtual Box file is here](http://www.geog.ucl.ac.uk/ucl-vm), but mind
+you: **it is a 4.4Gb file**. You will need to download the [VirtualBox software](https://www.virtualbox.org/wiki/Downloads)
+for your computer, and install the appliance. Note that you will need a
+fairly modern computer to use the VBox comfortably: ideally more than 
+4Gb of RAM.
